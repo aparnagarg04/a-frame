@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebVR FPS Game</title>
+    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  </head>
+  <body>
+    <script>
+        var player = document.querySelector("[wasd-controls]");
+        var thumbstickSensitivity = 0.03;
+        function updateThumbstickMovement() {
+  var rightController = document.getElementById("rightHand");
+  var thumbstickComponent = rightController.components['oculus-touch-controls'];
+  
+  if (thumbstickComponent) {
+    var thumbstick = thumbstickComponent.data.axes;
+    var cameraRotation = document.querySelector("a-camera").getAttribute("rotation");
+
+    // Calculate movement vector based on thumbstick position and camera rotation
+    var movementVector = new THREE.Vector3(
+      -thumbstick[0] * thumbstickSensitivity,
+      0,
+      -thumbstick[1] * thumbstickSensitivity
+    );
+
+    // Rotate the movement vector to align with the camera rotation
+    movementVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), (cameraRotation.y * Math.PI) / 180);
+
+    // Apply the movement to the player
+    player.setAttribute("wasd-controls", {
+      acceleration: 65,
+      fly: false,
+      speed: 0.1,
+      adAxis: "x",
+      wsAxis: "z",
+    });
+
+    // Set the player's velocity based on the thumbstick input
+    player.body.velocity.set(movementVector.x, 0, movementVector.z);
+  }
+}
+
+
+        // function updateThumbstickMovement() {
+        //   var rightController = document.getElementById("rightHand");
+        //   var thumbstick = rightController.getAttribute("oculus-touch-controls").axes;
+        //   var cameraRotation = document.querySelector("a-camera").getAttribute("rotation");
+
+        //   // Calculate movement vector based on thumbstick position and camera rotation
+        //   var movementVector = new THREE.Vector3(
+        //     -thumbstick[0] * thumbstickSensitivity,
+        //     0,
+        //     -thumbstick[1] * thumbstickSensitivity
+        //   );
+
+        //   // Rotate the movement vector to align with the camera rotation
+        //   movementVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), (cameraRotation.y * Math.PI) / 180);
+
+        //   // Apply the movement to the player
+        //   player.setAttribute("wasd-controls", {
+        //     acceleration: 65,
+        //     fly: false,
+        //     speed: 0.1,
+        //     adAxis: "x",
+        //     wsAxis: "z",
+        //   });
+
+        //   // Set the player's velocity based on the thumbstick input
+        //   player.body.velocity.set(movementVector.x, 0, movementVector.z);
+        // }
+
+        // // Call the thumbstick movement function on every tick
+        // AFRAME.registerComponent("thumbstick-movement", {
+        //   tick: function () {
+        //     updateThumbstickMovement();
+        //   },
+        // });
+      </script>
+    <a-scene>
+      <!-- Assets -->
+      <a-asset-item id="leftControllerModel" src="./oculus_quest_2_controller_right.glb"></a-asset-item>
+      <a-asset-item id="rightControllerModel" src="./oculus_quest_2_controller_right.glb"></a-asset-item>
+      <a-asset-item id="bulletModel" src="./sphere.glb"></a-asset-item>
+
+      <!-- Controllers -->
+      <a-entity id="leftHand" oculus-touch-controls="hand: left; model: #leftControllerModel;"></a-entity>
+      <a-entity id="rightHand" oculus-touch-controls="hand: right; model: #rightControllerModel;"></a-entity>
+
+      <!-- Player Camera -->
+      <a-entity
+        camera
+        look-controls
+        wasd-controls
+        position="0 1.6 0"
+      ></a-entity>
+
+      <!-- Sky and Ground -->
+      <a-sky color="#87CEEB"></a-sky>
+      <a-plane
+        position="0 0 0"
+        rotation="-90 0 0"
+        width="100"
+        height="100"
+        color="#00AA00"
+      ></a-plane>
+
+      <!-- Player Camera -->
+      <a-camera position="0 1.6 0"></a-camera>
+
+      <!-- Weapon (attached to the right controller) -->
+      <a-entity
+        id="weapon"
+        gltf-model="./weapon.glb"
+        position="0.1 0.3 -0.5"
+        rotation="0 180 0"
+        scale="0.02 0.02 0.02"
+        visible="false"
+        oculus-touch-controls="hand: right"
+      ></a-entity>
+
+      <!-- Shooting Logic -->
+      <script>
+        var isShooting = false;
+
+        // Function to handle shooting
+        function shoot() {
+          if (!isShooting) {
+            isShooting = true;
+
+            // Create a bullet entity
+            var bullet = document.createElement("a-sphere");
+            var weapon = document.getElementById("weapon");
+var weaponPosition = weapon.getAttribute("position");
+            // bullet.setAttribute("gltf-model", "#bulletModel");
+            bullet.setAttribute("position", weaponPosition); // Adjust position
+            bullet.setAttribute("scale", "0.01 0.01 0.01"); // Adjust scale
+            bullet.setAttribute("dynamic-body", "mass: 0.01; shape: sphere;sphereRadius: 0.02;");
+            
+             // Add a force to the bullet in the calculated direction
+    
+
+            // Calculate the bullet direction based on the camera rotation
+            var camera = document.querySelector("a-camera");
+            var cameraRotation = camera.getAttribute("rotation");
+            var cameraRotationRad = (cameraRotation.y * Math.PI) / 180;
+            var bulletDirection = new THREE.Vector3(
+              -Math.sin(cameraRotationRad),
+              0,
+              -Math.cos(cameraRotationRad)
+            );
+
+            // Set the bullet's initial position to the weapon's position
+            // var weapon = document.getElementById("weapon");
+            // var weaponPosition = weapon.getAttribute("position");
+            // bullet.setAttribute("position", weaponPosition);
+
+            // Add a force to the bullet in the calculated direction
+            var bulletBody=bullet.body;
+            bullet.body.applyImpulse(bulletDirection, new THREE.Vector3());
+
+            
+            // Add the bullet to the scene
+            var scene = document.querySelector("a-scene");
+            scene.appendChild(bullet);
+
+            // Hide the weapon temporarily
+            document.getElementById("weapon").setAttribute("visible", "false");
+
+            // Set a timeout to allow shooting again
+            setTimeout(function () {
+              isShooting = false;
+              document.getElementById("weapon").setAttribute("visible", "true");
+            }, 1000); // Adjust the fire rate as needed
+          }
+        }
+
+        // Event listener for the trigger button
+        document.getElementById("rightHand").addEventListener("triggerdown", shoot);
+      </script>
+
+      <!-- Thumbstick Movement Logic -->
+      
+
+      <!-- Register thumbstick-movement component on the player entity -->
+      <a-entity wasd-controls thumbstick-movement></a-entity>
+
+      
+      <!-- Obstacle -->
+      <a-box
+        position="2 1 2"
+        width="2"
+        height="2"
+        depth="2"
+        color="#FF0000"
+      ></a-box>
+    </a-scene>
+  </body>
+</html>
